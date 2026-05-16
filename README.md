@@ -1,4 +1,4 @@
-# Formato Livre | Gestão de Projetos (Mini-CRM)
+# Gestão de Projetos (Mini-CRM)
 
 Bem-vindo à documentação do **Formato Livre - Gestão Pro Max**, um mini-CRM construído sob medida para gerenciamento ágil de clientes, orçamentos, etapas de projeto e prazos.
 

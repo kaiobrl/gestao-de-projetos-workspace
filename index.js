@@ -1,3 +1,26 @@
+// --- Utilitários de Segurança ---
+function sanitizeInput(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function sanitizeHtml(html) {
+  const temp = document.createElement('div');
+  temp.textContent = html;
+  return temp.innerHTML;
+}
+
+// Simple hash implementation (SHA-256-like)
+async function simpleHash(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str + 'FormatoLivre2024Salt!');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // --- Sistema de Login / Auth ---
 const authContainer = document.getElementById('authContainer');
 const appContainer = document.getElementById('appContainer');
@@ -11,7 +34,7 @@ const authError = document.getElementById('authError');
 let isSetupMode = !localStorage.getItem('fl_auth_hash');
 
 if (isSetupMode) {
-  authTitle.innerText = 'Bem-vindo ao Formato Livre';
+  authTitle.innerText = 'Bem-vindo';
   authSubtitle.innerText = 'Crie uma senha mestre para proteger seus dados';
   authBtn.innerHTML = 'Definir Senha <i class="ph ph-check-circle"></i>';
 }
@@ -26,13 +49,16 @@ if (sessionStorage.getItem('fl_authenticated') === 'true') {
   showApp();
 }
 
-authForm.addEventListener('submit', (e) => {
+authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const pwd = authPassword.value;
-  if (!pwd) return;
+  if (!pwd || pwd.length < 4) {
+    authError.textContent = 'Senha deve ter pelo menos 4 caracteres';
+    authError.classList.remove('opacity-0');
+    return;
+  }
 
-  // Obfuscação simples para evitar texto limpo no localStorage
-  const hash = btoa(pwd.split('').reverse().join(''));
+  const hash = await simpleHash(pwd);
 
   if (isSetupMode) {
     localStorage.setItem('fl_auth_hash', hash);
@@ -41,7 +67,7 @@ authForm.addEventListener('submit', (e) => {
     setTimeout(() => {
         if(typeof showToast === 'function') showToast('Senha configurada com sucesso!', 'success');
     }, 500);
-    isSetupMode = false; // Updates for potential future checks
+    isSetupMode = false;
   } else {
     const storedHash = localStorage.getItem('fl_auth_hash');
     if (hash === storedHash) {
@@ -51,6 +77,7 @@ authForm.addEventListener('submit', (e) => {
         if(typeof showToast === 'function') showToast('Login realizado com sucesso!', 'success');
       }, 500);
     } else {
+      authError.textContent = 'Senha incorreta. Tente novamente.';
       authError.classList.remove('opacity-0');
       authPassword.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
       authPassword.classList.remove('focus:border-blue-500', 'focus:ring-blue-500', 'border-gray-700');
@@ -213,6 +240,136 @@ const dashboardView = document.getElementById('dashboardView');
 let finChartInstance = null;
 let convChartInstance = null;
 
+// Pagination
+const ITEMS_PER_PAGE = 10;
+let currentPage = 1;
+
+// Search debounce
+let searchTimeout = null;
+
+// --- Alertas de Prazo (Vencimento em 3 dias) ---
+function getDeadlineStatus(dueDate) {
+  if (!dueDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return { status: 'overdue', days: diffDays, label: 'Atrasado' };
+  if (diffDays <= 3) return { status: 'urgent', days: diffDays, label: `${diffDays} dia${diffDays !== 1 ? 's' : ''}` };
+  return null;
+}
+
+// --- Notificações do Navegador ---
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function showBrowserNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: 'https://unpkg.com/@phosphor-icons/web/src/regular/ph-bell.png' });
+  }
+}
+
+function checkDeadlineNotifications() {
+  clients.forEach(client => {
+    const deadline = getDeadlineStatus(client.dueDate);
+    if (deadline && deadline.status === 'urgent' && !client.notifiedDeadline) {
+      showBrowserNotification(
+        'Prazo Próximo!',
+        `${client.name} tem entrega em ${deadline.label}`
+      );
+      client.notifiedDeadline = true;
+      saveData();
+    }
+  });
+}
+
+function notifyStageChange(client, newStage) {
+  showBrowserNotification(
+    'Projeto Avançado!',
+    `${client.name} mudou para: ${stages[newStage].title}`
+  );
+}
+
+// Check notifications on load
+if (sessionStorage.getItem('fl_authenticated') === 'true') {
+  requestNotificationPermission();
+  setTimeout(checkDeadlineNotifications, 2000);
+}
+
+// --- Exportação PDF ---
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+
+exportPdfBtn?.addEventListener('click', () => {
+  if (clients.length === 0) {
+    showToast('Nenhum dado para exportar', 'info');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(20);
+  doc.setTextColor(59, 130, 246);
+  doc.text('Formato Livre - Gestão de Projetos', 20, 20);
+
+  doc.setFontSize(12);
+  doc.setTextColor(100);
+  doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 30);
+
+  const totalValue = clients.reduce((acc, c) => acc + (c.value || 0), 0);
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.text(`Total de Projetos: ${clients.length}`, 20, 45);
+  doc.text(`Valor Total: R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, 55);
+
+  let yPos = 70;
+  doc.setFontSize(16);
+  doc.setTextColor(59, 130, 246);
+  doc.text('Projetos', 20, yPos);
+  yPos += 10;
+
+  clients.forEach((client, index) => {
+    const currentStage = stages[client.stageIndex];
+    const deadline = getDeadlineStatus(client.dueDate);
+
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(`${index + 1}. ${client.name}`, 20, yPos);
+    yPos += 6;
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Projeto: ${client.project.substring(0, 60)}${client.project.length > 60 ? '...' : ''}`, 20, yPos);
+    yPos += 5;
+
+    doc.text(`Etapa: ${currentStage.title} | Valor: R$ ${(client.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+    yPos += 5;
+
+    if (deadline) {
+      const color = deadline.status === 'overdue' ? [220, 38, 38] : [245, 158, 11];
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(`Prazo: ${deadline.label}`, 20, yPos);
+      doc.setTextColor(100);
+      yPos += 5;
+    }
+
+    yPos += 8;
+  });
+
+  doc.save('Workspace-relatorio.pdf');
+  showToast('PDF exportado com sucesso!', 'success');
+});
+
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 }
@@ -250,7 +407,13 @@ function showToast(message, type = 'success') {
 }
 
 // Event Listeners Extras
-searchInput.addEventListener('input', render);
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    currentPage = 1;
+    render();
+  }, 300);
+});
 
 // Tabs Listeners
 tabProjectsBtn.addEventListener('click', () => {
@@ -287,22 +450,49 @@ importInput.addEventListener('change', (e) => {
     try {
       const importedClients = JSON.parse(event.target.result);
       if (Array.isArray(importedClients)) {
-        clients = importedClients;
+        // Validate and sanitize imported data
+        const validClients = importedClients.filter(c => {
+          return c && typeof c === 'object' && c.name && c.project && typeof c.id === 'number';
+        }).map(c => ({
+          id: c.id || Date.now() + Math.random(),
+          name: sanitizeInput(c.name),
+          phone: sanitizeInput(c.phone || ''),
+          email: sanitizeInput(c.email || ''),
+          project: sanitizeInput(c.project),
+          notes: sanitizeInput(c.notes || ''),
+          stageIndex: Math.min(Math.max(parseInt(c.stageIndex) || 0, 0), stages.length - 1),
+          startDate: c.startDate || '',
+          dueDate: c.dueDate || '',
+          value: Math.max(0, parseFloat(c.value) || 0),
+          paymentStatus: c.paymentStatus || 'Aguardando',
+          tags: Array.isArray(c.tags) ? c.tags.map(t => sanitizeInput(t)).filter(Boolean) : [],
+          links: { figma: '', drive: '', github: '', ...c.links },
+          completedSubtasks: Array.isArray(c.completedSubtasks) ? c.completedSubtasks : [],
+          history: Array.isArray(c.history) ? c.history : []
+        }));
+        
+        clients = validClients;
         saveData();
         render();
-        showToast('Dados importados com sucesso!', 'success');
+        showToast(`${validClients.length} projetos importados com sucesso!`, 'success');
       } else {
         showToast('Arquivo JSON inválido', 'error');
       }
     } catch (err) {
       showToast('Erro ao ler arquivo', 'error');
     }
-    importInput.value = ''; // reset
+    importInput.value = '';
   };
   reader.readAsText(file);
 });
 
 cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+// Close modal on backdrop click
+deleteModal.addEventListener('click', (e) => {
+  if (e.target === deleteModal) closeDeleteModal();
+});
+
 confirmDeleteBtn.addEventListener('click', () => {
   if (clientIdToDelete) {
     clients = clients.filter(c => c.id !== clientIdToDelete);
@@ -333,6 +523,12 @@ function closeDeleteModal() {
 
 // Edit Logic
 cancelEditBtn.addEventListener('click', closeEditModal);
+
+// Close modal on backdrop click
+editModal.addEventListener('click', (e) => {
+  if (e.target === editModal) closeEditModal();
+});
+
 editForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const id = parseInt(editClientId.value);
@@ -482,10 +678,26 @@ function render() {
     return;
   }
 
-  filteredClients.forEach(client => {
+  // Pagination
+  const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedClients = filteredClients.slice(startIndex, endIndex);
+
+  paginatedClients.forEach(client => {
     const currentStage = stages[client.stageIndex];
     const completedTasks = client.completedSubtasks ? client.completedSubtasks.length : 0;
     const progressPercentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+    // Deadline status for visual alert
+    const deadlineStatus = getDeadlineStatus(client.dueDate);
+    let deadlineBadge = '';
+    if (deadlineStatus) {
+      const alertClass = deadlineStatus.status === 'overdue'
+        ? 'bg-red-500/20 text-red-400 border-red-500/30'
+        : 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      deadlineBadge = `<span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${alertClass}"><i class="ph ph-warning mr-1"></i>${deadlineStatus.label}</span>`;
+    }
 
     let displayStatus = client.paymentStatus || 'Aguardando';
     if (completedTasks === totalTasks && totalTasks > 0) {
@@ -545,22 +757,22 @@ function render() {
                       <div class="flex-1">
                           <div class="flex items-center justify-between gap-4">
                             <h3 class="text-xl font-medium text-white flex items-center gap-2">
-                              ${client.name}
+                              ${sanitizeInput(client.name)}
                             </h3>
                             <div class="text-right">
                               <div class="text-sm font-semibold text-white">${formatCurrency(client.value)}</div>
-                              ${paymentBadge}
+                              <div class="flex flex-col gap-1 mt-1">${paymentBadge}${deadlineBadge}</div>
                             </div>
                           </div>
                           
                           ${client.phone || client.email ? `
                             <div class="flex flex-wrap items-center gap-3 mt-2 mb-1 text-xs text-gray-400">
-                              ${client.phone ? `<a href="https://wa.me/55${client.phone.replace(/\D/g, '')}" target="_blank" class="flex items-center gap-1 hover:text-emerald-400 transition-colors"><i class="ph ph-whatsapp-logo text-sm"></i> ${client.phone}</a>` : ''}
-                              ${client.email ? `<a href="mailto:${client.email}" class="flex items-center gap-1 hover:text-blue-400 transition-colors"><i class="ph ph-envelope-simple text-sm"></i> ${client.email}</a>` : ''}
+                              ${client.phone ? `<a href="https://wa.me/55${client.phone.replace(/\D/g, '')}" target="_blank" class="flex items-center gap-1 hover:text-emerald-400 transition-colors"><i class="ph ph-whatsapp-logo text-sm"></i> ${sanitizeInput(client.phone)}</a>` : ''}
+                              ${client.email ? `<a href="mailto:${sanitizeInput(client.email)}" class="flex items-center gap-1 hover:text-blue-400 transition-colors"><i class="ph ph-envelope-simple text-sm"></i> ${sanitizeInput(client.email)}</a>` : ''}
                             </div>
                           ` : ''}
                           ${tagsHtml}
-                          <p class="text-gray-400 text-sm mt-3 border-t border-gray-700/50 pt-2">${client.project}</p>
+                          <p class="text-gray-400 text-sm mt-3 border-t border-gray-700/50 pt-2">${sanitizeInput(client.project)}</p>
                           ${linksHtml}
                       </div>
                       <div class="flex items-center gap-2 ml-4">
@@ -626,10 +838,38 @@ function render() {
     clientsList.appendChild(card);
   });
 
+  // Pagination controls
+  if (filteredClients.length > ITEMS_PER_PAGE) {
+    const paginationHtml = `
+      <div class="flex justify-center items-center gap-2 mt-8">
+        <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+          <i class="ph ph-caret-left"></i>
+        </button>
+        <span class="text-gray-400 text-sm">Página ${currentPage} de ${totalPages}</span>
+        <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+          <i class="ph ph-caret-right"></i>
+        </button>
+      </div>
+    `;
+    clientsList.insertAdjacentHTML('beforeend', paginationHtml);
+  }
+
   if (typeof updateCharts === 'function' && !dashboardView.classList.contains('hidden')) {
     updateCharts();
   }
-}
+};
+
+window.goToPage = function(page) {
+  const filteredClients = clients.filter(client => 
+    client.name.toLowerCase().includes(searchInput.value.toLowerCase()) || 
+    client.project.toLowerCase().includes(searchInput.value.toLowerCase())
+  );
+  const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
+  if (page >= 1 && page <= totalPages) {
+    currentPage = page;
+    render();
+  }
+};
 
 // Adicionar Cliente
 form.addEventListener('submit', (e) => {
@@ -642,12 +882,21 @@ form.addEventListener('submit', (e) => {
   const dueDateInput = document.getElementById('clientDueDate');
   const valueInput = document.getElementById('clientValue');
   
-  const name = nameInput.value.trim();
-  const phone = phoneInput.value.trim();
-  const email = emailInput.value.trim();
-  const project = projectInput.value.trim();
+  const name = sanitizeInput(nameInput.value.trim());
+  const phone = sanitizeInput(phoneInput.value.trim());
+  const email = sanitizeInput(emailInput.value.trim());
+  const project = sanitizeInput(projectInput.value.trim());
 
-  if (!name || !project || !phone || !email) return;
+  if (!name || !project || !phone || !email) {
+    showToast('Preencha todos os campos obrigatórios', 'error');
+    return;
+  }
+
+  // Basic email validation
+  if (!email.includes('@') || !email.includes('.')) {
+    showToast('E-mail inválido', 'error');
+    return;
+  }
 
   const newClient = {
     id: Date.now(),
@@ -656,10 +905,10 @@ form.addEventListener('submit', (e) => {
     email,
     project,
     notes: '',
-    stageIndex: 0, // Inicia no índice 0 (Primeiro Contato)
+    stageIndex: 0,
     startDate: startDateInput.value,
     dueDate: dueDateInput.value,
-    value: parseFloat(valueInput.value) || 0,
+    value: Math.max(0, parseFloat(valueInput.value) || 0),
     paymentStatus: 'Aguardando',
     tags: [],
     links: { figma: '', drive: '', github: '' },
@@ -671,7 +920,7 @@ form.addEventListener('submit', (e) => {
   saveData();
   form.reset();
   render();
-  showToast('Projeto cadastrado com sucesso!');
+  showToast('Projeto cadastrado com sucesso!', 'success');
 });
 
 // Mover Cliente entre as etapas
@@ -685,6 +934,7 @@ function moveStage(clientId, direction) {
       render();
       if (direction > 0) {
         showToast(`Avançou para: ${stages[newIndex].title}`, 'info');
+        notifyStageChange(client, newIndex);
       }
     }
   }
@@ -696,6 +946,36 @@ function moveStage(clientId, direction) {
 // Salvar no LocalStorage
 function saveData() {
   localStorage.setItem('formato-livre-clients', JSON.stringify(clients));
+  // Backup automático
+  localStorage.setItem('formato-livre-backup', JSON.stringify(clients));
+}
+
+// Auto-backup on load and periodic
+setInterval(() => {
+  localStorage.setItem('formato-livre-backup', JSON.stringify(clients));
+}, 60000);
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', (e) => {
+  saveData();
+});
+
+// Restore from backup if data is corrupted
+try {
+  const testData = JSON.parse(localStorage.getItem('formato-livre-clients'));
+  if (!Array.isArray(testData)) throw new Error('Invalid data');
+} catch (e) {
+  const backup = localStorage.getItem('formato-livre-backup');
+  if (backup) {
+    try {
+      clients = JSON.parse(backup);
+      saveData();
+      console.log('Dados restaurados do backup');
+    } catch (err) {
+      clients = [];
+      saveData();
+    }
+  }
 }
 
 // Dashboard Charts

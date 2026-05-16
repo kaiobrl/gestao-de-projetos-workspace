@@ -4,12 +4,13 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formato Livre | Gestão de Projetos</title>
+    <title>Espaço de Trabalho</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <script type="text/javascript" src="./index.js" defer=""></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -48,7 +49,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="flex items-center gap-3">
           <i class="ph-fill ph-code text-3xl text-blue-500"></i>
-          <h1 class="text-xl font-semibold tracking-wide">Formato Livre <span class="text-slate-500 font-light text-sm ml-2">| Workspace</span></h1>
+          <h1 class="text-xl font-semibold tracking-wide">Espaço de Trabalho <span class="text-slate-500 font-light text-sm ml-2">| Workspace</span></h1>
         </div>
         
         <!-- Search Bar -->
@@ -71,8 +72,11 @@
             <button id="importBtn" onclick="document.getElementById('importInput').click()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Importar JSON">
               <i class="ph ph-upload-simple"></i>
             </button>
-            <button id="exportBtn" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Exportar Dados">
+            <button id="exportBtn" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Exportar JSON">
               <i class="ph ph-download-simple"></i>
+            </button>
+            <button id="exportPdfBtn" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Exportar PDF">
+              <i class="ph ph-file-pdf"></i>
             </button>
           </div>
         </div>

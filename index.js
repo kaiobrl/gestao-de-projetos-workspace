@@ -310,64 +310,75 @@ exportPdfBtn?.addEventListener('click', () => {
     return;
   }
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  if (!window.jspdf) {
+    showToast('Erro: Biblioteca geradora de PDF não foi carregada. Tente recarregar a página.', 'error');
+    return;
+  }
 
-  doc.setFontSize(20);
-  doc.setTextColor(59, 130, 246);
-  doc.text('Formato Livre - Gestão de Projetos', 20, 20);
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
 
-  doc.setFontSize(12);
-  doc.setTextColor(100);
-  doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 30);
-
-  const totalValue = clients.reduce((acc, c) => acc + (c.value || 0), 0);
-  doc.setFontSize(14);
-  doc.setTextColor(0);
-  doc.text(`Total de Projetos: ${clients.length}`, 20, 45);
-  doc.text(`Valor Total: R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, 55);
-
-  let yPos = 70;
-  doc.setFontSize(16);
-  doc.setTextColor(59, 130, 246);
-  doc.text('Projetos', 20, yPos);
-  yPos += 10;
-
-  clients.forEach((client, index) => {
-    const currentStage = stages[client.stageIndex];
-    const deadline = getDeadlineStatus(client.dueDate);
-
-    if (yPos > 270) {
-      doc.addPage();
-      yPos = 20;
-    }
+    doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
+    doc.text('Formato Livre - Gestão de Projetos', 20, 20);
 
     doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text(`${index + 1}. ${client.name}`, 20, yPos);
-    yPos += 6;
-
-    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Projeto: ${client.project.substring(0, 60)}${client.project.length > 60 ? '...' : ''}`, 20, yPos);
-    yPos += 5;
+    doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 30);
 
-    doc.text(`Etapa: ${currentStage.title} | Valor: R$ ${(client.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
-    yPos += 5;
+    const totalValue = clients.reduce((acc, c) => acc + (c.value || 0), 0);
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(`Total de Projetos: ${clients.length}`, 20, 45);
+    doc.text(`Valor Total: R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, 55);
 
-    if (deadline) {
-      const color = deadline.status === 'overdue' ? [220, 38, 38] : [245, 158, 11];
-      doc.setTextColor(color[0], color[1], color[2]);
-      doc.text(`Prazo: ${deadline.label}`, 20, yPos);
+    let yPos = 70;
+    doc.setFontSize(16);
+    doc.setTextColor(59, 130, 246);
+    doc.text('Projetos', 20, yPos);
+    yPos += 10;
+
+    clients.forEach((client, index) => {
+      const currentStage = stages[client.stageIndex] || { title: 'Desconhecida' };
+      const deadline = getDeadlineStatus(client.dueDate);
+      const projectName = client.project || 'Sem descrição';
+
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`${index + 1}. ${client.name || 'Cliente'}`, 20, yPos);
+      yPos += 6;
+
+      doc.setFontSize(10);
       doc.setTextColor(100);
+      doc.text(`Projeto: ${projectName.substring(0, 60)}${projectName.length > 60 ? '...' : ''}`, 20, yPos);
       yPos += 5;
-    }
 
-    yPos += 8;
-  });
+      doc.text(`Etapa: ${currentStage.title} | Valor: R$ ${(client.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+      yPos += 5;
 
-  doc.save('Workspace-relatorio.pdf');
-  showToast('PDF exportado com sucesso!', 'success');
+      if (deadline) {
+        const color = deadline.status === 'overdue' ? [220, 38, 38] : [245, 158, 11];
+        doc.setTextColor(color[0], color[1], color[2]);
+        doc.text(`Prazo: ${deadline.label}`, 20, yPos);
+        doc.setTextColor(100);
+        yPos += 5;
+      }
+
+      yPos += 8;
+    });
+
+    doc.save('Workspace-relatorio.pdf');
+    showToast('PDF exportado com sucesso!', 'success');
+  } catch (error) {
+    console.error("Erro ao gerar PDF:", error);
+    showToast('Erro ao gerar o PDF.', 'error');
+  }
 });
 
 function formatCurrency(value) {

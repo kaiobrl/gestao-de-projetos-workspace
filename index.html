@@ -10,6 +10,9 @@
 
     <script type="text/javascript" src="./index.js" defer=""></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,16 +31,24 @@
         <h2 id="authTitle" class="text-2xl font-semibold mb-2 text-white">Acesso Restrito</h2>
         <p id="authSubtitle" class="text-slate-400 text-sm mb-8">Digite sua senha para acessar o painel</p>
         
-        <form id="authForm" class="space-y-5">
+        <form id="authForm" class="space-y-4">
+          <div class="relative">
+            <i class="ph ph-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-xl"></i>
+            <input type="email" id="authEmail" required placeholder="Seu e-mail" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+          </div>
           <div class="relative">
             <i class="ph ph-password absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-xl"></i>
-            <input type="password" id="authPassword" required placeholder="Sua senha" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-lg tracking-wider" style="font-family: 'Fira Code', monospace;">
+            <input type="password" id="authPassword" required placeholder="Sua senha" class="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
           </div>
-          <button type="submit" id="authBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3.5 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40">
+          <button type="submit" id="authBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40">
             Acessar Painel <i class="ph ph-arrow-right"></i>
           </button>
         </form>
-        <p id="authError" class="text-red-400 text-sm mt-4 opacity-0 transition-opacity">Senha incorreta. Tente novamente.</p>
+        <div class="mt-6 text-sm">
+          <span id="authToggleText" class="text-slate-400">Não tem uma conta?</span>
+          <button id="authToggleBtn" class="text-blue-400 hover:text-blue-300 font-medium ml-1 transition-colors">Criar agora</button>
+        </div>
+        <p id="authError" class="text-red-400 text-sm mt-4 opacity-0 transition-opacity">Erro ao autenticar. Verifique seus dados.</p>
       </div>
     </div>
 
@@ -60,8 +71,11 @@
 
         <div class="flex items-center gap-4">
           <div class="text-right hidden sm:block">
-            <div class="text-sm text-slate-400 whitespace-nowrap" id="statsDisplay">
+            <div class="text-sm text-slate-400 whitespace-nowrap flex items-center gap-2 justify-end" id="statsDisplay">
               0 clientes ativos
+              <button id="logoutBtn" class="text-slate-500 hover:text-red-400 transition-colors p-1" title="Sair">
+                <i class="ph ph-sign-out text-lg"></i>
+              </button>
             </div>
             <div class="text-xs text-emerald-400 font-medium mt-0.5" id="totalValueDisplay" style="font-family: 'Fira Code', monospace;">
               R$ 0,00

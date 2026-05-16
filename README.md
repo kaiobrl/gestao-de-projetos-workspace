@@ -1,4 +1,4 @@
-# Gestão de Projetos (Mini-CRM)
+# Formato Livre | Gestão de Projetos (Mini-CRM)
 
 Bem-vindo à documentação do **Formato Livre - Gestão Pro Max**, um mini-CRM construído sob medida para gerenciamento ágil de clientes, orçamentos, etapas de projeto e prazos.
 
@@ -10,10 +10,12 @@ Este projeto foi desenvolvido com uma arquitetura **100% Client-Side** para ser 
 - **HTML5:** Estrutura semântica e formulários.
 - **Tailwind CSS (via CDN):** Utilizado para estilização rápida, responsividade e layout (Dark Mode default).
 - **Vanilla JavaScript (ES6+):** Controle de DOM, lógica de negócios, cálculos financeiros e manipulação de arrays.
+- **Firebase (BaaS):**
+    - **Firestore:** Banco de dados NoSQL em nuvem que permite sincronização em tempo real entre dispositivos e armazenamento persistente e escalável.
+    - **Authentication:** Sistema de login seguro com e-mail e senha, garantindo que cada usuário tenha acesso apenas aos seus próprios dados.
 - **Chart.js (via CDN):** Biblioteca utilizada para a renderização gráfica da aba de relatórios/dashboard.
 - **Phosphor Icons (via CDN):** Biblioteca elegante para ícones visuais (relógios, links, ações).
-- **LocalStorage & SessionStorage API:** Banco de dados integrado no navegador que salva informações offline e garante estado de sessão para autenticação.
-- **Web Crypto API:** Hash de senhas com SHA-256 e salt para segurança.
+- **jsPDF:** Geração de relatórios em PDF diretamente no navegador.
 
 ---
 
@@ -39,11 +41,10 @@ Para continuar desenvolvendo ou modificar a aplicação no futuro, entenda o flu
 Se você precisar alterar, adicionar ou remover as **8 Etapas** da sua metodologia, abra o arquivo `index.js`. Logo após a lógica de login, você encontrará o array `stages`.
 - Para criar novas sub-tarefas padrão para uma fase, basta editar a propriedade `tasks: [...]` dentro daquele objeto de etapa.
 
-### 2. Manipulando o LocalStorage & Senha Mestre
-- **Clientes:** Todos os clientes são salvos com a chave `formato-livre-clients`.
-- **Backup:** Backup automático disponível em `formato-livre-backup` (recuperado automaticamente se dados principais estiverem corrompidos).
-- **Autenticação:** A senha de bloqueio (hasheada com SHA-256 + salt) fica na chave `fl_auth_hash`. Para "esquecer a senha", abra o Console (F12) e digite `localStorage.removeItem('fl_auth_hash')`.
-- **Sincronização / Backup:** Como os dados ficam apenas no navegador, **sempre exporte o JSON**clicando no botão de download (gera o arquivo `gestao-de-projetos.json`) antes de limpar o cache.
+### 2. Manipulando o Banco de Dados (Firebase Firestore)
+- **Sincronização:** Todos os clientes são salvos automaticamente na nuvem. Você pode acessar seus dados de qualquer dispositivo fazendo login com sua conta.
+- **Segurança:** Os dados são protegidos por regras de segurança do Firebase. Cada usuário (identificado pelo seu `uid`) possui um documento exclusivo na coleção `users`, garantindo total privacidade.
+- **Backup:** Embora os dados estejam na nuvem, você ainda pode utilizar o botão de **Exportar JSON** para manter uma cópia física dos seus dados ou migrar para outra conta.
 
 ### 3. Configurações de Paginação
 - A paginação padrão mostra 10 projetos por página.
@@ -53,8 +54,10 @@ Se você precisar alterar, adicionar ou remover as **8 Etapas** da sua metodolog
 
 ## ✨ Principais Funcionalidades
 
-1. **Sistema de Login Seguro:** O painel possui tela de bloqueio com hash SHA-256 + salt. No primeiro acesso, o usuário define uma senha mestre.
-2. **Paginação e Busca Otimizada:** Busca com debounce (300ms) e paginação de 10 itens por página para melhor performance.
+1. **Sistema de Autenticação Real:** Login e criação de conta seguros via Firebase Auth (E-mail/Senha).
+2. **Sincronização em Nuvem:** Dados salvos em tempo real no Firestore, permitindo acesso multi-dispositivo.
+3. **Isolamento de Dados:** Cada usuário possui seu próprio banco de dados privado.
+4. **Paginação e Busca Otimizada:** Busca com debounce (300ms) e paginação para melhor performance.
 3. **Aba de Dashboard (Gráficos):** Uma aba analítica que utiliza Chart.js para mostrar:
    - *Projeção Financeira:* Soma dos valores de projetos faturados agrupados por mês (baseado nas datas de entrega/início).
    - *Conversão de Projetos:* Um gráfico em funil que quantifica quantos projetos estão parados em cada etapa da jornada do cliente.
@@ -63,25 +66,23 @@ Se você precisar alterar, adicionar ou remover as **8 Etapas** da sua metodolog
    - *Links Rápidos:* Integração para abrir WhatsApp Web ou E-mail instantaneamente a partir do painel.
    - *Anexos de Ferramentas:* Campos estruturados para URLs do Figma, Google Drive e GitHub.
    - *Tags & Anotações:* Sistema de tags visuais customizadas e área de notas livres.
-6. **Import/Export com Validação:** Importação com validação e sanitização de dados. Exportação inclui informações de etapa.
-7. **Backup Automático:** Backup automático a cada 60 segundos e recuperação automática em caso de dados corrompidos.
-8. **UX Melhorada:** Fechar modais ao clicar no backdrop, validação de formulários, animações e transições suaves.
+6. **Import/Export:** Funcionalidade para migrar dados via JSON com validação de integridade.
+7. **UX Melhorada:** Fechar modais ao clicar no backdrop, validação de formulários, animações e transições suaves.
 
 ---
 
 ## 🛡️ Medidas de Segurança Implementadas
 
-- **Hash de Senhas:** Utiliza Web Crypto API com SHA-256 e salt fixo para proteger a senha mestras.
+- **Firebase Auth:** Autenticação robusta gerenciada pelo Google, com suporte a sessões persistentes e recuperação de conta.
+- **Firestore Security Rules:** Proteção em nível de servidor para garantir que um usuário nunca acesse os dados de outro.
 - **Sanitização de Inputs:** Todos os dados inseridos pelo usuário são sanitizados para prevenir XSS.
-- **Validação de Import:** Dados importados são validados e sanitizados antes de serem salvos.
-- **Session Storage:** Autenticação usa sessionStorage (limpo ao fechar navegador) com opção "lembrar" via localStorage.
+- **Validação de Import:** Dados importados são validados e sanitizados antes de serem salvos no banco.
 
 ---
 
 ## 💡 Próximos Passos (Sugestões para o Futuro)
 
-1. **Banco de Dados em Nuvem (Firebase / Supabase):**
-   * *Por que?* Ao conectar um Backend-as-a-Service, você passa a poder acessar o painel do celular ou notebook sincronizando os dados em tempo real.
+1. *(IMPLEMENTADO)* Banco de Dados em Nuvem (Firebase) - Autenticação e Firestore integrados para sincronização multi-dispositivo.
 2. *(IMPLEMENTADO)* Sistema de Alertas de Prazos - Alerta visual para projetos com entrega nos próximos 3 dias ou atrasados.
 3. *(IMPLEMENTADO)* Exportação de Relatórios PDF - Botão para exportar relatório completo com todos os projetos.
 4. *(IMPLEMENTADO)* Notificações Browser - Notificações ao avançar etapas e quando prazos estão próximos.

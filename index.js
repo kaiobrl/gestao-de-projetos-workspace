@@ -1,3 +1,21 @@
+// 1. Configuração do Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyC0itWNKkbqJXR-GaPUXrp-aTFdiWnhvo4",
+  authDomain: "espaco-de-trabalho-crm.firebaseapp.com",
+  projectId: "espaco-de-trabalho-crm",
+  storageBucket: "espaco-de-trabalho-crm.firebasestorage.app",
+  messagingSenderId: "977591695690",
+  appId: "1:977591695690:web:9c18c0d7c530d01d8269b3"
+};
+
+// 2. Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Referência ao documento será definida após o login
+let docRef = null;
+
 // --- Utilitários de Segurança ---
 function sanitizeInput(str) {
   if (!str) return '';
@@ -12,82 +30,90 @@ function sanitizeHtml(html) {
   return temp.innerHTML;
 }
 
-// Simple hash implementation (SHA-256-like)
-async function simpleHash(str) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str + 'FormatoLivre2024Salt!');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 // --- Sistema de Login / Auth ---
 const authContainer = document.getElementById('authContainer');
 const appContainer = document.getElementById('appContainer');
 const authForm = document.getElementById('authForm');
+const authEmail = document.getElementById('authEmail');
 const authPassword = document.getElementById('authPassword');
 const authTitle = document.getElementById('authTitle');
 const authSubtitle = document.getElementById('authSubtitle');
 const authBtn = document.getElementById('authBtn');
 const authError = document.getElementById('authError');
+const authToggleBtn = document.getElementById('authToggleBtn');
+const authToggleText = document.getElementById('authToggleText');
+const logoutBtn = document.getElementById('logoutBtn');
 
-let isSetupMode = !localStorage.getItem('fl_auth_hash');
-
-if (isSetupMode) {
-  authTitle.innerText = 'Bem-vindo';
-  authSubtitle.innerText = 'Crie uma senha mestre para proteger seus dados';
-  authBtn.innerHTML = 'Definir Senha <i class="ph ph-check-circle"></i>';
-}
+let isLoginMode = true;
 
 function showApp() {
   authContainer.classList.add('hidden');
   appContainer.classList.remove('hidden');
   authPassword.value = '';
+  authEmail.value = '';
 }
 
-if (sessionStorage.getItem('fl_authenticated') === 'true') {
-  showApp();
+function showAuth() {
+  authContainer.classList.remove('hidden');
+  appContainer.classList.add('hidden');
 }
+
+// Toggle entre Login e Cadastro
+authToggleBtn.addEventListener('click', () => {
+  isLoginMode = !isLoginMode;
+  authTitle.innerText = isLoginMode ? 'Acesso Restrito' : 'Criar Conta';
+  authSubtitle.innerText = isLoginMode ? 'Digite seu e-mail e senha para acessar' : 'Cadastre-se para começar a organizar seus projetos';
+  authBtn.innerHTML = isLoginMode ? 'Acessar Painel <i class="ph ph-arrow-right"></i>' : 'Criar Conta <i class="ph ph-user-plus"></i>';
+  authToggleText.innerText = isLoginMode ? 'Não tem uma conta?' : 'Já tem uma conta?';
+  authToggleBtn.innerText = isLoginMode ? 'Criar agora' : 'Fazer login';
+  authError.classList.add('opacity-0');
+});
+
+// Listener de estado de autenticação
+auth.onAuthStateChanged(user => {
+  if (user) {
+    docRef = db.collection('users').doc(user.uid);
+    showApp();
+    initDB();
+    requestNotificationPermission();
+    setTimeout(checkDeadlineNotifications, 2000);
+  } else {
+    showAuth();
+  }
+});
 
 authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  const email = authEmail.value;
   const pwd = authPassword.value;
-  if (!pwd || pwd.length < 4) {
-    authError.textContent = 'Senha deve ter pelo menos 4 caracteres';
-    authError.classList.remove('opacity-0');
-    return;
-  }
+  
+  authBtn.disabled = true;
+  authBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> Aguarde...';
 
-  const hash = await simpleHash(pwd);
-
-  if (isSetupMode) {
-    localStorage.setItem('fl_auth_hash', hash);
-    sessionStorage.setItem('fl_authenticated', 'true');
-    showApp();
-    setTimeout(() => {
-        if(typeof showToast === 'function') showToast('Senha configurada com sucesso!', 'success');
-    }, 500);
-    isSetupMode = false;
-  } else {
-    const storedHash = localStorage.getItem('fl_auth_hash');
-    if (hash === storedHash) {
-      sessionStorage.setItem('fl_authenticated', 'true');
-      showApp();
-      setTimeout(() => {
-        if(typeof showToast === 'function') showToast('Login realizado com sucesso!', 'success');
-      }, 500);
+  try {
+    if (isLoginMode) {
+      await auth.signInWithEmailAndPassword(email, pwd);
+      showToast('Bem-vindo de volta!', 'success');
     } else {
-      authError.textContent = 'Senha incorreta. Tente novamente.';
-      authError.classList.remove('opacity-0');
-      authPassword.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
-      authPassword.classList.remove('focus:border-blue-500', 'focus:ring-blue-500', 'border-gray-700');
-      setTimeout(() => {
-        authError.classList.add('opacity-0');
-        authPassword.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
-        authPassword.classList.add('focus:border-blue-500', 'focus:ring-blue-500', 'border-gray-700');
-      }, 3000);
+      await auth.createUserWithEmailAndPassword(email, pwd);
+      showToast('Conta criada com sucesso!', 'success');
     }
+  } catch (error) {
+    console.error("Erro na autenticação:", error);
+    authError.textContent = error.message;
+    authError.classList.remove('opacity-0');
+    setTimeout(() => authError.classList.add('opacity-0'), 5000);
+  } finally {
+    authBtn.disabled = false;
+    authBtn.innerHTML = isLoginMode ? 'Acessar Painel <i class="ph ph-arrow-right"></i>' : 'Criar Conta <i class="ph ph-user-plus"></i>';
   }
+});
+
+logoutBtn.addEventListener('click', () => {
+  auth.signOut().then(() => {
+    showToast('Sessão encerrada', 'info');
+  });
 });
 // ---------------------------------
 
@@ -191,8 +217,8 @@ const stages = [{
 
 const totalTasks = stages.reduce((acc, stage) => acc + (stage.tasks ? stage.tasks.length : 0), 0);
 
-// Estado da Aplicação (LocalStorage)
-let clients = JSON.parse(localStorage.getItem('formato-livre-clients')) || [];
+// Estado da Aplicação
+let clients = [];
 
 // Elementos da DOM
 const form = document.getElementById('clientForm');
@@ -295,11 +321,6 @@ function notifyStageChange(client, newStage) {
   );
 }
 
-// Check notifications on load
-if (sessionStorage.getItem('fl_authenticated') === 'true') {
-  requestNotificationPermission();
-  setTimeout(checkDeadlineNotifications, 2000);
-}
 
 // --- Exportação PDF ---
 const exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -954,39 +975,39 @@ function moveStage(clientId, direction) {
 // A função deleteClient não é mais necessária pois a lógica foi para o event listener do confirmDeleteBtn
 // A chamada inline no HTML foi trocada para openDeleteModal()
 
-// Salvar no LocalStorage
-function saveData() {
-  localStorage.setItem('formato-livre-clients', JSON.stringify(clients));
-  // Backup automático
-  localStorage.setItem('formato-livre-backup', JSON.stringify(clients));
+
+// Salvar no Firebase Firestore
+async function saveData() {
+  if (!docRef) return;
+  try {
+    await docRef.set({
+      lista: clients
+    });
+    console.log("Dados sincronizados com o Firebase!");
+  } catch (error) {
+    console.error("Erro ao salvar no Firebase:", error);
+  }
 }
 
-// Auto-backup on load and periodic
-setInterval(() => {
-  localStorage.setItem('formato-livre-backup', JSON.stringify(clients));
-}, 60000);
-
-// Warn before leaving with unsaved changes
-window.addEventListener('beforeunload', (e) => {
-  saveData();
-});
-
-// Restore from backup if data is corrupted
-try {
-  const testData = JSON.parse(localStorage.getItem('formato-livre-clients'));
-  if (!Array.isArray(testData)) throw new Error('Invalid data');
-} catch (e) {
-  const backup = localStorage.getItem('formato-livre-backup');
-  if (backup) {
-    try {
-      clients = JSON.parse(backup);
-      saveData();
-      console.log('Dados restaurados do backup');
-    } catch (err) {
-      clients = [];
-      saveData();
+// Inicializar e Carregar Dados do Firebase
+async function initDB() {
+  if (!docRef) return;
+  try {
+    const doc = await docRef.get();
+    
+    if (doc.exists) {
+      clients = doc.data().lista || [];
+      console.log("Dados carregados do Firebase com sucesso!");
+    } else {
+      clients = []; // Primeiro uso
+      console.log("Nenhum dado encontrado no Firebase para este usuário.");
     }
+  } catch (error) {
+    console.error("Erro ao carregar do Firebase:", error);
+    showToast('Erro ao conectar com a nuvem', 'error');
   }
+  
+  render();
 }
 
 // Dashboard Charts
@@ -1147,5 +1168,3 @@ function updateCharts() {
   }
 }
 
-// Inicialização
-render();

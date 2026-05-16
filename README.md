@@ -68,6 +68,7 @@ Se você precisar alterar, adicionar ou remover as **8 Etapas** da sua metodolog
    - *Tags & Anotações:* Sistema de tags visuais customizadas e área de notas livres.
 6. **Import/Export:** Funcionalidade para migrar dados via JSON com validação de integridade.
 7. **UX Melhorada:** Fechar modais ao clicar no backdrop, validação de formulários, animações e transições suaves.
+8. **Logoff Acessível:** Botão de "Sair" estrategicamente posicionado no cabeçalho, visível em todos os tamanhos de tela (desktop e mobile) para encerramento rápido e seguro da sessão.
 
 ---
 

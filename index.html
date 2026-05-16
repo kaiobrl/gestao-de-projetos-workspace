@@ -73,9 +73,6 @@
           <div class="text-right hidden sm:block">
             <div class="text-sm text-slate-400 whitespace-nowrap flex items-center gap-2 justify-end" id="statsDisplay">
               0 clientes ativos
-              <button id="logoutBtn" class="text-slate-500 hover:text-red-400 transition-colors p-1" title="Sair">
-                <i class="ph ph-sign-out text-lg"></i>
-              </button>
             </div>
             <div class="text-xs text-emerald-400 font-medium mt-0.5" id="totalValueDisplay" style="font-family: 'Fira Code', monospace;">
               R$ 0,00
@@ -91,6 +88,10 @@
             </button>
             <button id="exportPdfBtn" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Exportar PDF">
               <i class="ph ph-file-pdf"></i>
+            </button>
+            <button id="logoutBtn" class="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400 hover:bg-red-500/20 transition-colors" title="Sair do Sistema">
+              <i class="ph ph-sign-out text-lg"></i>
+              <span class="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>

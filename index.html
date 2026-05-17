@@ -164,6 +164,26 @@
 
       <!-- Dashboard View -->
       <div id="dashboardView" class="hidden space-y-6">
+        <!-- KPI Cards -->
+        <div id="kpiCards" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass-panel p-4 rounded-xl text-center">
+            <div class="text-2xl font-bold text-blue-400" id="kpiTotalProjects">0</div>
+            <div class="text-xs text-gray-400 uppercase tracking-wider">Total Projetos</div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl text-center">
+            <div class="text-2xl font-bold text-emerald-400" id="kpiCompletedProjects">0</div>
+            <div class="text-xs text-gray-400 uppercase tracking-wider">Concluídos</div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl text-center">
+            <div class="text-2xl font-bold text-amber-400" id="kpiTotalValue">R$ 0</div>
+            <div class="text-xs text-gray-400 uppercase tracking-wider">Valor Total</div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl text-center">
+            <div class="text-2xl font-bold text-purple-400" id="kpiConversionRate">0%</div>
+            <div class="text-xs text-gray-400 uppercase tracking-wider">Taxa Conversão</div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Projeção Financeira -->
           <div class="glass-panel p-6 rounded-2xl">
@@ -173,6 +193,12 @@
             <div class="relative h-64 w-full">
               <canvas id="financialChart"></canvas>
             </div>
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs" id="paymentBreakdown">
+              <div class="bg-gray-800/30 rounded p-2"><span class="text-emerald-400">●</span> Pago: <span id="paidValue">R$ 0</span></div>
+              <div class="bg-gray-800/30 rounded p-2"><span class="text-blue-400">●</span> Sinal: <span id="signalValue">R$ 0</span></div>
+              <div class="bg-gray-800/30 rounded p-2"><span class="text-amber-400">●</span> Parcial: <span id="partialValue">R$ 0</span></div>
+              <div class="bg-gray-800/30 rounded p-2"><span class="text-gray-400">●</span> Aguardando: <span id="pendingValue">R$ 0</span></div>
+            </div>
           </div>
           <!-- Conversão de Projetos -->
           <div class="glass-panel p-6 rounded-2xl">
@@ -181,6 +207,10 @@
             </h3>
             <div class="relative h-64 w-full">
               <canvas id="conversionChart"></canvas>
+            </div>
+            <div class="mt-4 text-xs text-gray-400" id="conversionDetails">
+              <div>Média de conversão entre etapas: <span id="avgConversion" class="text-blue-400 font-medium">0%</span></div>
+              <div>Tempo médio por etapa: <span id="avgTimePerStage" class="text-blue-400 font-medium">0 dias</span></div>
             </div>
           </div>
         </div>

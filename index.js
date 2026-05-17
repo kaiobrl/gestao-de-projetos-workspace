@@ -1010,9 +1010,56 @@ async function initDB() {
   render();
 }
 
+// Dashboard KPI Cards
+function updateKPICards() {
+  const totalProjects = clients.length;
+  const totalValue = clients.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0);
+  const completedProjects = clients.filter(c => {
+    const cs = stages[c.stageIndex];
+    const totalT = cs && cs.tasks ? cs.tasks.length : 0;
+    const doneT = c.completedSubtasks ? c.completedSubtasks.length : 0;
+    return (c.stageIndex === stages.length - 1) || (totalT > 0 && doneT === totalT);
+  }).length;
+  const conversionRate = totalProjects > 0 && stages.length > 1
+    ? Math.round((completedProjects / totalProjects) * 100)
+    : 0;
+
+  const kpiTotalProjectsEl = document.getElementById('kpiTotalProjects');
+  const kpiCompletedProjectsEl = document.getElementById('kpiCompletedProjects');
+  const kpiTotalValueEl = document.getElementById('kpiTotalValue');
+  const kpiConversionRateEl = document.getElementById('kpiConversionRate');
+
+  if (kpiTotalProjectsEl) kpiTotalProjectsEl.textContent = totalProjects;
+  if (kpiCompletedProjectsEl) kpiCompletedProjectsEl.textContent = completedProjects;
+  if (kpiTotalValueEl) kpiTotalValueEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue);
+  if (kpiConversionRateEl) kpiConversionRateEl.textContent = conversionRate + '%';
+}
+
 // Dashboard Charts
 function updateCharts() {
   if (typeof Chart === 'undefined') return;
+
+  // KPI Cards
+  updateKPICards();
+
+  // Payment breakdown by status
+  const paymentTotals = { Pago: 0, 'Sinal Pago': 0, Parcial: 0, Aguardando: 0 };
+  clients.forEach(client => {
+    const status = client.paymentStatus || 'Aguardando';
+    if (paymentTotals[status] !== undefined) {
+      paymentTotals[status] += parseFloat(client.value) || 0;
+    }
+  });
+
+  const paidValueEl = document.getElementById('paidValue');
+  const signalValueEl = document.getElementById('signalValue');
+  const partialValueEl = document.getElementById('partialValue');
+  const pendingValueEl = document.getElementById('pendingValue');
+
+  if (paidValueEl) paidValueEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTotals.Pago);
+  if (signalValueEl) signalValueEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTotals['Sinal Pago']);
+  if (partialValueEl) partialValueEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTotals.Parcial);
+  if (pendingValueEl) pendingValueEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTotals.Aguardando);
 
   // 1. Projeção Financeira
   const monthData = {};
@@ -1103,6 +1150,46 @@ function updateCharts() {
       }
     });
   }
+
+  // Conversion stats: average conversion rate and average time per stage
+  const parseAvgDays = (timeStr) => {
+    if (!timeStr) return 0;
+    const cleaned = timeStr.replace('+', '');
+    const parts = cleaned.split('-');
+    if (parts.length === 2) {
+      const min = parseInt(parts[0]) || 0;
+      const max = parseInt(parts[1]) || min;
+      return (min + max) / 2;
+    }
+    return parseInt(parts[0]) || 0;
+  };
+
+  const totalAvgDays = stages.reduce((acc, s) => acc + parseAvgDays(s.time), 0);
+
+  let avgConversion = 0;
+  if (clients.length > 0 && stages.length > 1) {
+    const conversionList = [];
+    for (let i = 0; i < stages.length - 1; i++) {
+      const countAtStage = clients.filter(c => c.stageIndex === i).length;
+      const countNextStage = clients.filter(c => c.stageIndex === i + 1).length;
+      if (countAtStage > 0) {
+        conversionList.push((countNextStage / countAtStage) * 100);
+      }
+    }
+    avgConversion = conversionList.length > 0
+      ? Math.round(conversionList.reduce((a, b) => a + b, 0) / conversionList.length)
+      : 0;
+  }
+
+  const avgTimePerStage = stages.length > 0
+    ? Math.round(totalAvgDays / stages.length)
+    : 0;
+
+  const avgConversionEl = document.getElementById('avgConversion');
+  const avgTimePerStageEl = document.getElementById('avgTimePerStage');
+
+  if (avgConversionEl) avgConversionEl.textContent = avgConversion + '%';
+  if (avgTimePerStageEl) avgTimePerStageEl.textContent = avgTimePerStage + ' dias';
 
   // 2. Conversão de Projetos (Funil/Bar)
   const stageCounts = Array(stages.length).fill(0);
